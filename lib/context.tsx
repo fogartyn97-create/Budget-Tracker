@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { addWeeks, addMonths, addYears, parseISO, isAfter, startOfDay, format } from 'date-fns';
 import { Account, Budget, Category, Transaction, RecurringTransaction } from './types';
 import {
   getAccounts, saveAccounts, getCategories, saveCategories,
@@ -8,12 +10,66 @@ import {
   getRecurring, saveRecurring,
 } from './store';
 
+function advanceDate(date: Date, freq: RecurringTransaction['frequency']): Date {
+  if (freq === 'weekly') return addWeeks(date, 1);
+  if (freq === 'yearly') return addYears(date, 1);
+  return addMonths(date, 1);
+}
+
+/**
+ * Posts any recurring charges whose nextDate has arrived (or passed), catching up
+ * on every missed period. Returns updated transactions, accounts, and recurring lists.
+ */
+function processRecurring(
+  recurring: RecurringTransaction[],
+  transactions: Transaction[],
+  accounts: Account[],
+): { transactions: Transaction[]; accounts: Account[]; recurring: RecurringTransaction[]; posted: number } {
+  const today = startOfDay(new Date());
+  const newTx: Transaction[] = [];
+  const balanceDelta: Record<string, number> = {};
+
+  const updatedRecurring = recurring.map(r => {
+    if (!r.active) return r;
+    let next = startOfDay(parseISO(r.nextDate));
+    let guard = 0;
+    while (!isAfter(next, today) && guard < 500) {
+      newTx.push({
+        id: uuidv4(),
+        accountId: r.accountId,
+        categoryId: r.categoryId,
+        amount: r.amount,
+        type: r.type,
+        description: r.description,
+        date: format(next, 'yyyy-MM-dd'),
+        createdAt: new Date().toISOString(),
+      });
+      balanceDelta[r.accountId] = (balanceDelta[r.accountId] ?? 0) + (r.type === 'income' ? r.amount : -r.amount);
+      next = advanceDate(next, r.frequency);
+      guard++;
+    }
+    return { ...r, nextDate: format(next, 'yyyy-MM-dd') };
+  });
+
+  if (newTx.length === 0) {
+    return { transactions, accounts, recurring, posted: 0 };
+  }
+
+  const updatedAccounts = accounts.map(a =>
+    balanceDelta[a.id] ? { ...a, balance: a.balance + balanceDelta[a.id] } : a
+  );
+  const updatedTx = [...newTx.sort((a, b) => b.date.localeCompare(a.date)), ...transactions];
+
+  return { transactions: updatedTx, accounts: updatedAccounts, recurring: updatedRecurring, posted: newTx.length };
+}
+
 interface AppContextType {
   accounts: Account[];
   categories: Category[];
   transactions: Transaction[];
   budgets: Budget[];
   recurring: RecurringTransaction[];
+  postedCount: number;
   addAccount: (a: Account) => void;
   updateAccount: (a: Account) => void;
   deleteAccount: (id: string) => void;
@@ -38,12 +94,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([]);
 
+  const [postedCount, setPostedCount] = useState(0);
+
   useEffect(() => {
-    setAccounts(getAccounts());
+    const loadedAccounts = getAccounts();
+    const loadedTx = getTransactions();
+    const loadedRecurring = getRecurring();
     setCategories(getCategories());
-    setTransactions(getTransactions());
     setBudgets(getBudgets());
-    setRecurring(getRecurring());
+
+    // Auto-post any due recurring charges (catches up on missed periods)
+    const result = processRecurring(loadedRecurring, loadedTx, loadedAccounts);
+    if (result.posted > 0) {
+      saveTransactions(result.transactions);
+      saveAccounts(result.accounts);
+      saveRecurring(result.recurring);
+      setPostedCount(result.posted);
+      setTimeout(() => setPostedCount(0), 6000);
+    }
+    setAccounts(result.accounts);
+    setTransactions(result.transactions);
+    setRecurring(result.recurring);
   }, []);
 
   const addAccount = useCallback((a: Account) => {
@@ -137,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      accounts, categories, transactions, budgets, recurring,
+      accounts, categories, transactions, budgets, recurring, postedCount,
       addAccount, updateAccount, deleteAccount,
       addTransaction, updateTransaction, deleteTransaction,
       addBudget, updateBudget, deleteBudget,

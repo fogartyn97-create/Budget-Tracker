@@ -3,6 +3,7 @@ import { Geist } from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/lib/context';
 import Navbar from '@/components/Navbar';
+import Toast from '@/components/Toast';
 
 const geist = Geist({ subsets: ['latin'] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-28 sm:pb-10">
             {children}
           </main>
+          <Toast />
         </AppProvider>
       </body>
     </html>
