@@ -6,6 +6,10 @@ import { useApp } from '@/lib/context';
 import { Budget } from '@/lib/types';
 import { format } from 'date-fns';
 
+const inputClass = "w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all";
+const inputStyle = { backgroundColor: '#0f1117', border: '1px solid #2a2d3e' };
+const labelClass = "block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide";
+
 interface Props {
   onClose: () => void;
   existing?: Budget;
@@ -22,9 +26,7 @@ export default function BudgetForm({ onClose, existing }: Props) {
     e.preventDefault();
     const b: Budget = {
       id: existing?.id ?? uuidv4(),
-      categoryId,
-      amount: parseFloat(amount),
-      month,
+      categoryId, amount: parseFloat(amount), month,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     };
     existing ? updateBudget(b) : addBudget(b);
@@ -34,49 +36,30 @@ export default function BudgetForm({ onClose, existing }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-        <select
-          required
-          value={categoryId}
-          onChange={e => setCategoryId(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
+        <label className={labelClass}>Category</label>
+        <select required value={categoryId} onChange={e => setCategoryId(e.target.value)}
+          className={inputClass} style={{ ...inputStyle, appearance: 'none' }}>
           <option value="">Select category</option>
-          {expenseCategories.map(c => (
-            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-          ))}
+          {expenseCategories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
         </select>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Budget ($)</label>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          required
-          value={amount}
+        <label className={labelClass}>Monthly Budget ($)</label>
+        <input type="number" min="1" step="1" required value={amount}
           onChange={e => setAmount(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          placeholder="500"
-        />
+          className={inputClass} style={inputStyle} placeholder="500" />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-        <input
-          type="month"
-          required
-          value={month}
-          onChange={e => setMonth(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        />
+        <label className={labelClass}>Month</label>
+        <input type="month" required value={month} onChange={e => setMonth(e.target.value)}
+          className={inputClass} style={inputStyle} />
       </div>
 
-      <button
-        type="submit"
-        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors"
-      >
+      <button type="submit"
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 mt-2"
+        style={{ backgroundColor: '#6366f1' }}>
         {existing ? 'Update Budget' : 'Set Budget'}
       </button>
     </form>

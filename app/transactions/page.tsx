@@ -7,9 +7,11 @@ import Modal from '@/components/Modal';
 import TransactionForm from '@/components/TransactionForm';
 import { Transaction } from '@/lib/types';
 
-function fmt(n: number) {
+function fmtFull(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
+
+const cardStyle = { backgroundColor: '#1a1d27', border: '1px solid #2a2d3e' };
 
 export default function TransactionsPage() {
   const { transactions, categories, accounts, deleteTransaction } = useApp();
@@ -30,110 +32,102 @@ export default function TransactionsPage() {
     });
   }, [transactions, search, filterType, filterCategory, categories]);
 
-  function handleEdit(t: Transaction) {
-    setEditing(t);
-    setShowForm(true);
-  }
+  const totalFiltered = filtered.reduce((s, t) => t.type === 'income' ? s + t.amount : s - t.amount, 0);
 
-  function handleClose() {
-    setShowForm(false);
-    setEditing(undefined);
-  }
+  function handleClose() { setShowForm(false); setEditing(undefined); }
+
+  const inputStyle = { backgroundColor: '#0f1117', border: '1px solid #2a2d3e', color: '#f1f5f9' };
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Transactions</h1>
+          {filtered.length > 0 && (
+            <p className="text-xs text-slate-400 mt-0.5">{filtered.length} transactions · Net: <span className={totalFiltered >= 0 ? 'text-green-400' : 'text-red-400'}>{fmtFull(totalFiltered)}</span></p>
+          )}
+        </div>
         <button
           onClick={() => setShowForm(true)}
           disabled={accounts.length === 0}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ backgroundColor: '#6366f1' }}
         >
           + Add
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           placeholder="Search transactions..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="flex-1 rounded-xl px-4 py-2.5 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          style={inputStyle}
         />
-        <select
-          value={filterType}
-          onChange={e => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
+        <select value={filterType} onChange={e => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
+          className="rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          style={{ ...inputStyle, appearance: 'none' }}>
           <option value="all">All types</option>
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
-        <select
-          value={filterCategory}
-          onChange={e => setFilterCategory(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+          className="rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+          style={{ ...inputStyle, appearance: 'none' }}>
           <option value="">All categories</option>
-          {categories.map(c => (
-            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-          ))}
+          {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
         </select>
       </div>
 
-      {/* List */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <p className="text-4xl mb-3">💳</p>
-          <p className="text-gray-500">{transactions.length === 0 ? 'No transactions yet' : 'No results match your filters'}</p>
+        <div className="text-center py-24">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4" style={{ backgroundColor: '#6366f120' }}>↕</div>
+          <p className="text-white font-semibold">{transactions.length === 0 ? 'No transactions yet' : 'No results'}</p>
+          <p className="text-slate-400 text-sm mt-1">{transactions.length === 0 ? 'Add your first transaction above' : 'Try adjusting your filters'}</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="divide-y divide-gray-50">
-            {filtered.map(t => {
-              const cat = categories.find(c => c.id === t.categoryId);
-              const acc = accounts.find(a => a.id === t.accountId);
-              return (
-                <div key={t.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-2xl shrink-0">{cat?.icon ?? '📦'}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{t.description}</p>
-                      <p className="text-xs text-gray-400">
-                        {format(parseISO(t.date), 'MMM d, yyyy')} · {acc?.name} · {cat?.name}
-                      </p>
-                    </div>
+        <div className="rounded-2xl overflow-hidden" style={cardStyle}>
+          {filtered.map((t, i) => {
+            const cat = categories.find(c => c.id === t.categoryId);
+            const acc = accounts.find(a => a.id === t.accountId);
+            return (
+              <div key={t.id}
+                className="flex items-center justify-between px-5 py-3.5 hover:bg-white/[0.02] transition-colors group"
+                style={i < filtered.length - 1 ? { borderBottom: '1px solid #2a2d3e' } : {}}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
+                    style={{ backgroundColor: (cat?.color ?? '#6b7280') + '20' }}>
+                    {cat?.icon ?? '📦'}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <span className={`font-semibold text-sm ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
-                    </span>
-                    <div className="hidden group-hover:flex gap-1">
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteTransaction(t.id)}
-                        className="text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{t.description}</p>
+                    <p className="text-xs text-slate-500">{format(parseISO(t.date), 'MMM d, yyyy')} · {acc?.name} · {cat?.name}</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="flex items-center gap-3 shrink-0 ml-3">
+                  <span className={`font-semibold text-sm ${t.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                    {t.type === 'income' ? '+' : '-'}{fmtFull(t.amount)}
+                  </span>
+                  <div className="hidden group-hover:flex gap-1">
+                    <button onClick={() => { setEditing(t); setShowForm(true); }}
+                      className="text-xs px-2.5 py-1 rounded-lg text-slate-300 transition-colors"
+                      style={{ backgroundColor: '#2a2d3e' }}>Edit</button>
+                    <button onClick={() => deleteTransaction(t.id)}
+                      className="text-xs px-2.5 py-1 rounded-lg text-red-400 transition-colors"
+                      style={{ backgroundColor: '#ef444415' }}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {showForm && (
-        <Modal title={editing ? 'Edit Transaction' : 'Add Transaction'} onClose={handleClose}>
+        <Modal title={editing ? 'Edit Transaction' : 'New Transaction'} onClose={handleClose}>
           <TransactionForm onClose={handleClose} existing={editing} />
         </Modal>
       )}
